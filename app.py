@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g
+from flask import Flask, render_template, request, flash, redirect, session, g, url_for
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
@@ -98,7 +98,7 @@ def login():
     if form.validate_on_submit():
         user = User.authenticate(form.username.data,
                                  form.password.data)
-
+        
         if user:
             do_login(user)
             flash(f"Hello, {user.username}!", "success")
@@ -112,10 +112,15 @@ def login():
 @app.route('/logout')
 def logout():
     """Handle logout of user."""
+    """Log out the currently logged-in user."""
+    # Clear the session
+    session.clear()
 
-    # IMPLEMENT THIS
+    # Flash a success message
+    flash("You have successfully logged out.", "success")
 
-
+    # Redirect to the login page
+    return redirect(url_for('login'))
 ##############################################################################
 # General user routes:
 
