@@ -360,28 +360,31 @@ def show_liked_messages(user_id):
 @app.route('/')
 def homepage():
     """Show homepage:
-
-    - anon users: no messages
-    - logged in: 100 most recent messages of followed_users
+    
+    - anon users: redirect to signup page.
+    - logged in: show the following users' messages + logged in user's messages.
     """
 
     if g.user:
         following_ids = [user.id for user in g.user.following] + [g.user.id]
-        
-        messages = (Message
-                    .query
-                    .filter(Message.user_id.in_(following_ids))
-                    .order_by(Message.timestamp.desc())
-                    .limit(100)
-                    .all())
-        
-        likes = [msg.id for msg in g.user.likes]
 
-        return render_template('home.html', messages=messages)
+        if not g.user.following:
+            # User isn't following anyone, so display all messages
+            messages = Message.query.order_by(Message.timestamp.desc()).limit(100).all()
+        else:
+            # User is following someone, so display their messages + the user's own messages
+            messages = (Message
+                        .query
+                        .filter(Message.user_id.in_(following_ids))
+                        .order_by(Message.timestamp.desc())
+                        .limit(100)
+                        .all())
+
+        likes = [msg.id for msg in g.user.likes]
+        return render_template('home.html', messages=messages, likes=likes)
 
     else:
-        return render_template('home-anon.html')
-
+        return redirect("/signup")
 
 ##############################################################################
 # Turn off all caching in Flask
