@@ -45,7 +45,7 @@ class Likes(db.Model):
     message_id = db.Column(
         db.Integer,
         db.ForeignKey('messages.id', ondelete='cascade'),
-        unique=True
+        # unique=True
     )
 
 

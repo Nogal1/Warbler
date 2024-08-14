@@ -5,7 +5,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -305,6 +305,55 @@ def messages_destroy(message_id):
 
 
 ##############################################################################
+# Likes
+
+@app.route('/users/add_like/<int:message_id>', methods=['POST'])
+def add_like(message_id):
+    """Add a like to a message."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_message = Message.query.get_or_404(message_id)
+    if liked_message.user_id == g.user.id:
+        flash("You cannot like your own warble.", "danger")
+        return redirect("/")
+
+    if liked_message in g.user.likes:
+        flash("You have already liked this warble.", "danger")
+        return redirect("/")
+
+    like = Likes(user_id=g.user.id, message_id=message_id)
+    db.session.add(like)
+    db.session.commit()
+
+    return redirect("/")
+
+
+@app.route('/users/remove_like/<int:message_id>', methods=['POST'])
+def remove_like(message_id):
+    """Remove a like from a message."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    like = Likes.query.filter_by(user_id=g.user.id, message_id=message_id).first()
+    if like:
+        db.session.delete(like)
+        db.session.commit()
+
+    return redirect("/")
+
+@app.route('/users/<int:user_id>/likes')
+def show_liked_messages(user_id):
+    """Show liked messages for a user."""
+    user = User.query.get_or_404(user_id)
+    liked_messages = Message.query.join(Likes).filter(Likes.user_id == user_id).order_by(Message.timestamp.desc()).all()
+
+    return render_template('users/liked_messages.html', user=user, messages=liked_messages)
+
+
+##############################################################################
 # Homepage and error pages
 
 
@@ -325,6 +374,8 @@ def homepage():
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
+        
+        likes = [msg.id for msg in g.user.likes]
 
         return render_template('home.html', messages=messages)
 
