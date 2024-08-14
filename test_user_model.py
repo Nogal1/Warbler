@@ -8,7 +8,7 @@
 import os
 from unittest import TestCase
 
-from models import db, User, Message, Follows
+from models import db, User, Message, Follows, Likes
 from sqlalchemy.exc import IntegrityError
 
 # BEFORE we import our app, let's set an environmental variable
@@ -26,7 +26,7 @@ from app import app
 # Create our tables (we do this here, so we only create the tables
 # once for all tests --- in each test, we'll delete the data
 # and create fresh new clean test data
-
+db.drop_all()
 db.create_all()
 
 
@@ -49,6 +49,11 @@ class UserModelTestCase(TestCase):
 
         self.u1 = User.query.get(u1.id)
         self.u2 = User.query.get(u2.id)
+
+        self.m1 = Message(text="Test Message 1", user_id=self.u1.id)
+        self.m2 = Message(text="Test Message 2", user_id=self.u2.id)
+        db.session.add_all([self.m1, self.m2])
+        db.session.commit()
 
     def tearDown(self):
         """Clean up fouled transactions."""
@@ -124,3 +129,32 @@ class UserModelTestCase(TestCase):
     def test_user_authenticate_invalid_password(self):
         """Does User.authenticate fail to return a user when the password is invalid?"""
         self.assertFalse(User.authenticate("user1", "wrongpassword"))
+
+    def test_user_like_message(self):
+        """Can a user like a message?"""
+        like = Likes(user_id=self.u1.id, message_id=self.m2.id)
+        db.session.add(like)
+        db.session.commit()
+
+        self.assertIn(self.m2, self.u1.likes)
+
+    def test_user_unlike_message(self):
+        """Can a user unlike a message?"""
+        like = Likes(user_id=self.u1.id, message_id=self.m2.id)
+        db.session.add(like)
+        db.session.commit()
+
+        db.session.delete(like)
+        db.session.commit()
+
+        self.assertNotIn(self.m2, self.u1.likes)
+
+    def test_multiple_users_like_same_message(self):
+        """Can multiple users like the same message?"""
+        like1 = Likes(user_id=self.u1.id, message_id=self.m2.id)
+        like2 = Likes(user_id=self.u2.id, message_id=self.m2.id)
+        db.session.add_all([like1, like2])
+        db.session.commit()
+
+        self.assertIn(self.m2, self.u1.likes)
+        self.assertIn(self.m2, self.u2.likes)
